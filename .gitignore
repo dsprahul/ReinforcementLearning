@@ -1,0 +1,37 @@
+# pycharm files
+.idea*
+
+
+# log files
+*.log
+
+# image files
+*.png
+*.jpg
+*.jpeg
+*.xmb
+
+# compiled files
+*.pyc
+
+# text files and data files
+*.txt
+*.dat
+*.csv
+*.npy
+
+.vscode/
+BoxItAlgoTests/
+TestSet2/
+data/
+downgrade_firefox.sh
+Would skip repository getSubjectURL/
+imageData/
+numpyData/
+quickTest.py
+testDataSet/testImagesHelpTexts/
+testDataSet/testImagesVLM/
+videos/
+=======
+dbc_credentials.py
+credentials.py
