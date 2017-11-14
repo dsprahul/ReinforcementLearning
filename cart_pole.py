@@ -51,15 +51,23 @@ def get_next_action(agent, state_, reward, greedy=False):
     return int(np.argmax(action_proba))
 
 
-def loss_fn(y_true, y_pred):
+def sync_reward(reward, action):
 
-    pass
+    if reward > 0:
+        y_true = np.array([0.0, 0.0])
+        y_true[action] = 1.0
+    else:
+        y_true = np.array([1.0, 1.0])
+        y_true[action] = 0.0
+
+    return y_true
 
 
 def simple_exploration():
 
     episodes = 2000
     max_episode_len = 500
+    buffer_len = 50
 
     # Init env
     env = gym.make("CartPole-v0")
@@ -71,25 +79,28 @@ def simple_exploration():
 
         current_state = env.reset()
         total_reward = 0
+        buffer_a = []
+        buffer_r = []
         for _ in range(max_episode_len):
             action = get_next_action(state_=current_state,
                                      agent=agent,
                                      reward=reward)
             next_state, reward, done, _ = env.step(action)
+            # env.render()
             total_reward += reward
 
             # How do we communicate reward with agent? TODO
+            y_true = sync_reward(reward=reward, action=action)
 
-            if reward > 0:
-                y_true = np.array([0.0, 0.0])
-                y_true[action] = 1.0
-            else:
-                y_true = np.array([1.0, 1.0])
-                y_true[action] = 0.0
+            buffer_a.append(current_state)
+            buffer_r.append(y_true.reshape(-1, 2))
+            if len(buffer_a) >= buffer_len or done is True:
+                buffer_a, buffer_r = np.array(buffer_a), np.array(buffer_r)
+                agent.fit(x=buffer_a.reshape(-1, 4, 1),
+                          y=buffer_r.reshape(-1, 2),
+                          verbose=False)
 
-            agent.fit(x=current_state.reshape(1, 4, 1),
-                      y=y_true.reshape(-1, 2),
-                      verbose=False)
+                buffer_a, buffer_r = [], []
 
             if done is True:
                 break
