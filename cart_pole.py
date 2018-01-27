@@ -2,6 +2,7 @@ import os
 os.environ['KERAS_BACKEND'] = 'theano'
 
 import gym
+import random
 import numpy as np
 from keras.layers import Dense, Input, Flatten
 from keras.models import Model
@@ -47,27 +48,31 @@ def get_next_action(agent, state_, reward, greedy=False):
                                     state_=state_.reshape(1, 4, 1),
                                     agent=agent)
     # TODO implement greedy action picking
+    action = not int(np.argmax(action_proba)) if random.random(
+    ) < 0.3 else int(np.argmax(action_proba))
+    return action, action_proba
 
-    return int(np.argmax(action_proba))
 
+def sync_reward(reward, action, action_vect, next_state, agent):
 
-def sync_reward(reward, action):
+    _, next_action_vect = get_next_action(
+        agent=agent,
+        state_=next_state,
+        reward=reward
+    )
+    # print action_vect, action_vect.shape
+    action_vect[0, action] = action_vect[0, action] +\
+        (0.99 * (reward + 0.95 * (np.max(next_action_vect))))\
+        - (0.99 * action_vect[0, action])
 
-    if reward > 0:
-        y_true = np.array([0.0, 0.0])
-        y_true[action] = 1.0
-    else:
-        y_true = np.array([1.0, 1.0])
-        y_true[action] = 0.0
-
-    return y_true
+    return action_vect
 
 
 def simple_exploration():
 
-    episodes = 2000
+    episodes = 10000
     max_episode_len = 500
-    buffer_len = 50
+    buffer_len = 5
 
     # Init env
     env = gym.make("CartPole-v0")
@@ -82,15 +87,21 @@ def simple_exploration():
         buffer_a = []
         buffer_r = []
         for _ in range(max_episode_len):
-            action = get_next_action(state_=current_state,
-                                     agent=agent,
-                                     reward=reward)
+            action, action_vect = get_next_action(state_=current_state,
+                                                  agent=agent,
+                                                  reward=reward)
             next_state, reward, done, _ = env.step(action)
             # env.render()
             total_reward += reward
 
             # How do we communicate reward with agent? TODO
-            y_true = sync_reward(reward=reward, action=action)
+            y_true = sync_reward(
+                reward=reward,
+                action=action,
+                action_vect=action_vect,
+                next_state=next_state,
+                agent=agent
+            )
 
             buffer_a.append(current_state)
             buffer_r.append(y_true.reshape(-1, 2))
