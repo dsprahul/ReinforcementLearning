@@ -7,16 +7,18 @@ import numpy as np
 from keras.layers import Dense, Input, Flatten
 from keras.models import Model
 
+epsilon = 1.0
+
 
 def build_neural_agent(input_dim):
 
     input_ = Input(shape=(4, 1))
     # reward = Input(shape=(1,))
-    x = Dense(4, activation="relu")(input_)
-    x = Dense(16, activation="relu")(x)
+    x = Dense(16, activation="relu")(input_)
     x = Dense(8, activation="relu")(x)
+    # x = Dense(8, activation="relu")(x)
     x = Flatten()(x)
-    output = Dense(2, activation="softmax")(x)
+    output = Dense(2, activation="linear")(x)
 
     agent = Model(inputs=input_, outputs=output)
     agent.compile(
@@ -24,7 +26,7 @@ def build_neural_agent(input_dim):
         loss="mse",
         metrics=["accuracy"]
     )
-
+    print agent.summary()
     return agent
 
 
@@ -48,31 +50,47 @@ def get_next_action(agent, state_, reward, greedy=False):
                                     state_=state_.reshape(1, 4, 1),
                                     agent=agent)
     # TODO implement greedy action picking
-    action = not int(np.argmax(action_proba)) if random.random(
-    ) < 0.3 else int(np.argmax(action_proba))
+    if random.random() < epsilon:
+        action = random.choice([1, 0])
+    else:
+        action = np.argmax(action_proba)
+
     return action, action_proba
 
 
-def sync_reward(reward, action, action_vect, next_state, agent):
+def sync_reward(reward, action, action_vect, next_state, agent, done):
 
     _, next_action_vect = get_next_action(
         agent=agent,
         state_=next_state,
         reward=reward
     )
-    # print action_vect, action_vect.shape
-    action_vect[0, action] = action_vect[0, action] +\
-        (0.99 * (reward + 0.95 * (np.max(next_action_vect))))\
-        - (0.99 * action_vect[0, action])
+    # Correct the policy by
+    # action_vect[0, int(action)] = action_vect[0, int(action)] +\
+    #     (0.99 * (reward + 0.95 * (np.max(next_action_vect))))\
+    #     - (0.99 * action_vect[0, int(action)])
+    action_vect[0, int(action)] = reward + 0.99 * np.max(next_action_vect)
+
+    if done is True:
+        action_vect[0, int(action)] = -1.0
+
+    # if done is True:
+    #     action_vect[0, int(action)] = -10**20  # Makes exp(y) zero
+
+    # action_vect[0, int(not action)] = 1.0 - action_vect[0, int(action)]
+
+    # denominator = np.exp(action_vect[0, 0]) + np.exp(action_vect[0, 1])
+    # action_vect[0, int(action)] = np.exp(action_vect[0, int(action)]) / denominator
+    # action_vect[0, int(not action)] = np.exp(action_vect[0, int(not action)]) / denominator
 
     return action_vect
 
 
 def simple_exploration():
 
-    episodes = 10000
+    episodes = 20000
     max_episode_len = 500
-    buffer_len = 5
+    buffer_len = 15
 
     # Init env
     env = gym.make("CartPole-v0")
@@ -81,6 +99,9 @@ def simple_exploration():
 
     avg_reward_over_episodes = []
     for episode_num in range(episodes):
+
+            # print epsilon
+            # epsilon = max(0.1, epsilon)
 
         current_state = env.reset()
         total_reward = 0
@@ -100,16 +121,16 @@ def simple_exploration():
                 action=action,
                 action_vect=action_vect,
                 next_state=next_state,
-                agent=agent
+                agent=agent,
+                done=done
             )
 
             buffer_a.append(current_state)
             buffer_r.append(y_true.reshape(-1, 2))
             if len(buffer_a) >= buffer_len or done is True:
                 buffer_a, buffer_r = np.array(buffer_a), np.array(buffer_r)
-                agent.fit(x=buffer_a.reshape(-1, 4, 1),
-                          y=buffer_r.reshape(-1, 2),
-                          verbose=False)
+                agent.train_on_batch(x=buffer_a.reshape(-1, 4, 1),
+                                     y=buffer_r.reshape(-1, 2))
 
                 buffer_a, buffer_r = [], []
 
@@ -120,10 +141,16 @@ def simple_exploration():
 
         avg_reward_over_episodes.append(total_reward)
 
-        if episode_num % 100 == 0:
-            print("Average accumulated reward {}".format(
-                np.array(avg_reward_over_episodes).mean())
-            )
+        if episode_num % 500 == 0:
+            # print avg_reward_over_episodes[-100:]
+            print("{0:5d} --> Average accumulated reward: {1:.2f}\t Reward for this episode: {2:3d}\t Epsilon: {3:.2f}".format(
+                episode_num, np.array(
+                    avg_reward_over_episodes[-100:]).mean(), int(total_reward), epsilon
+            ))
+
+            if epsilon > 0.1:
+                global epsilon
+                epsilon /= 2.0
 
 
 if __name__ == "__main__":
