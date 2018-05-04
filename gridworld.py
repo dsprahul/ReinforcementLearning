@@ -1,8 +1,7 @@
 import numpy as np
-import random
 import itertools
 import scipy.misc
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 
 class gameOb():
@@ -24,7 +23,7 @@ class gameEnv():
         self.objects = []
         self.partial = partial
         a = self.reset()
-        plt.imshow(a, interpolation="nearest")
+        # plt.imshow(a, interpolation="nearest")
 
     def reset(self):
         self.objects = []
