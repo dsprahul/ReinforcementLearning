@@ -78,24 +78,28 @@ class GridEnvDQNAgent(object):
         Essentially this learns the Q table for solving CartPole, hence the name Deep-Q-Network.
         '''
         self.input_dims = input_dims
-        input_ = Input(shape=input_dims)
 
-        c1 = Conv2D(activation=conv_activation, filters=32,
-                    kernel_size=kernel_size, padding="SAME")(input_)
+        input_ = Input(shape=input_dims)
+        subsampled_input = MaxPooling2D(
+            strides=pool_stride,
+            pool_size=pool_stride
+        )(input_)
+        c1 = Conv2D(activation=conv_activation, filters=16,
+                    kernel_size=kernel_size, padding="SAME")(subsampled_input)
         c1 = MaxPooling2D(strides=pool_stride, pool_size=pool_stride)(c1)
 
-        c2 = Conv2D(activation=conv_activation, filters=128,
+        c2 = Conv2D(activation=conv_activation, filters=32,
                     kernel_size=kernel_size, padding="SAME")(c1)
         c2 = MaxPooling2D(strides=pool_stride, pool_size=pool_stride)(c2)
 
-        c3 = Conv2D(activation=conv_activation, filters=256,
+        c3 = Conv2D(activation=conv_activation, filters=64,
                     kernel_size=kernel_size, padding="SAME")(c2)
         c3 = MaxPooling2D(strides=pool_stride, pool_size=pool_stride)(c3)
 
         flattened = Flatten()(c3)
 
-        d1 = Dense(1024, activation=dense_activation)(flattened)
-        d2 = Dense(512, activation=dense_activation)(d1)
+        d1 = Dense(64, activation=dense_activation)(flattened)
+        d2 = Dense(16, activation=dense_activation)(d1)
         output_ = Dense(number_of_actions, activation=output_activation)(d2)
 
         agent_model = Model(inputs=[input_], outputs=[output_])
@@ -198,9 +202,9 @@ class GridEnvDQNAgent(object):
             self.rewards.append(accum_reward)
             self.decay_exploration_prob()
 
-            stat_update_freq = 8
+            stat_update_freq = 500
             if game % stat_update_freq == 0:
-                avg_reward = np.array(self.rewards[-2:]).mean()
+                avg_reward = np.array(self.rewards[-50:]).mean()
                 print("Avg. reward over last {0:d} is {1:3.2f} | Last played game#{2:d} | e={3:1.4f}".format(
                     stat_update_freq, avg_reward, game, self.exploration_prob
                 ))
