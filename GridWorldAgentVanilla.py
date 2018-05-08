@@ -20,6 +20,7 @@
 from keras.models import Model
 from keras.layers import (
     Conv2D,
+    BatchNormalization,
     Dense,
     MaxPooling2D,
     Flatten,
@@ -86,14 +87,17 @@ class GridEnvDQNAgent(object):
         )(input_)
         c1 = Conv2D(activation=conv_activation, filters=16,
                     kernel_size=kernel_size, padding="SAME")(subsampled_input)
+        c1 = BatchNormalization(axis=1)(c1)
         c1 = MaxPooling2D(strides=pool_stride, pool_size=pool_stride)(c1)
 
         c2 = Conv2D(activation=conv_activation, filters=32,
                     kernel_size=kernel_size, padding="SAME")(c1)
+        c2 = BatchNormalization(axis=1)(c2)
         c2 = MaxPooling2D(strides=pool_stride, pool_size=pool_stride)(c2)
 
         c3 = Conv2D(activation=conv_activation, filters=64,
                     kernel_size=kernel_size, padding="SAME")(c2)
+        c3 = BatchNormalization(axis=1)(c3)
         c3 = MaxPooling2D(strides=pool_stride, pool_size=pool_stride)(c3)
 
         flattened = Flatten()(c3)
